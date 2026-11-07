@@ -1,0 +1,29 @@
+name: 编译内网 Caddy 静态包
+on:
+push:
+branches:
+- main
+workflow_dispatch:
+jobs:
+build:
+runs-on: ubuntu-latest
+steps:
+- name: 检出网页仓库
+uses: actions/checkout@v4
+with:
+path: esp-labs-web
+- name: 检出固件源码仓库
+uses: actions/checkout@v4
+with:
+repository: agharsallah/esp-labs
+path: esp-labs
+- name: 安装 pnpm 11
+uses: pnpm/action-setup@v4
+with:
+version: 11
+- name: 配置 Node 24 环境
+uses: actions/setup-node@v4
+with:
+node-version: 24
+cache: 'pnpm'
+cache-dependency-path: esp-labs-web/pnpm-lock.yaml
