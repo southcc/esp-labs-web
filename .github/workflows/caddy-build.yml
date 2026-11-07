@@ -1,29 +1,63 @@
 name: 编译内网 Caddy 静态包
+
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main # 当代码推送到 main 分支时自动触发
+
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: 检出网页仓库
-uses: actions/checkout@v4
-with:
-path: esp-labs-web
-- name: 检出固件源码仓库
-uses: actions/checkout@v4
-with:
-repository: agharsallah/esp-labs
-path: esp-labs
-- name: 安装 pnpm 11
-uses: pnpm/action-setup@v4
-with:
-version: 11
-- name: 配置 Node 24 环境
-uses: actions/setup-node@v4
-with:
-node-version: 24
-cache: 'pnpm'
-cache-dependency-path: esp-labs-web/pnpm-lock.yaml
+  build-static:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 克隆当前网页代码仓库到 esp-labs-web 目录
+      - name: Checkout Web Repo
+        uses: actions/checkout@v4
+        with:
+          path: esp-labs-web
+
+      # 2. 克隆依赖的固件代码仓库到并排的 esp-labs 目录
+      - name: Checkout Firmware Repo
+        uses: actions/checkout@v4
+        with:
+          repository: agharsallah/esp-labs
+          path: esp-labs
+
+      # 3. 安装项目必需的包管理器 pnpm 11
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      # 4. 配置运行环境 Node.js 24
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: esp-labs-web/pnpm-lock.yaml
+
+      # 5. 精准修改 i18n 配置文件，将默认初始语言修改为简体中文
+      - name: Modify Default Language to Chinese
+        run: |
+          cd esp-labs-web
+          if [ -f "src/i18n/config.ts" ]; then
+            sed -i 's/fallbackLng:[[:space:]]*"en"/fallbackLng: "zh-CN"/g' src/i18n/config.ts || true
+            sed -i 's/lng:[[:space:]]*"en"/lng: "zh-CN"/g' src/i18n/config.ts || true
+          fi
+
+      # 6. 执行正式的生产环境静态编译打包
+      - name: Install and Build
+        run: |
+          cd esp-labs-web
+          pnpm install
+          pnpm build
+        env:
+          FIRMWARE_DIR: ../esp-labs
+
+      # 7. 将编译出的纯静态 dist 文件夹打包上传为 Artifact
+      - name: Upload Static Folder for Caddy
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-labs-static-caddy
+          path: ./esp-labs-web/dist
+          retention-days: 7
